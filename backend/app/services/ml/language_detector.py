@@ -31,8 +31,8 @@ def detect_language(text: str) -> dict:
             detected_lang = langs[0].lang
             confidence = langs[0].prob
             
-            # Map to supported languages
-            language = LANG_MAP.get(detected_lang, detected_lang)
+            # Map to supported languages, default to English if not supported
+            language = LANG_MAP.get(detected_lang, 'en')
             
             return {
                 "language": language,

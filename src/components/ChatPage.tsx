@@ -46,8 +46,9 @@ export function ChatPage({ selectedLanguage, onBack }: ChatPageProps) {
   const handleSendMessage = async () => {
     if (!inputText.trim()) return;
 
+    const timestamp = Date.now();
     const userMessage: Message = {
-      id: 'msg_' + Date.now(),
+      id: `user_${timestamp}`,
       type: 'user',
       content: inputText,
       timestamp: new Date(),
@@ -66,7 +67,7 @@ export function ChatPage({ selectedLanguage, onBack }: ChatPageProps) {
       });
 
       const botMessage: Message = {
-        id: 'msg_' + (Date.now() + 1),
+        id: `bot_${timestamp}`,
         type: 'bot',
         content: '',
         localContent: response.localLanguage.text,
@@ -79,7 +80,7 @@ export function ChatPage({ selectedLanguage, onBack }: ChatPageProps) {
       console.error('Error generating answer:', error);
       // Fallback to mock response on error
       const botMessage: Message = {
-        id: 'msg_' + (Date.now() + 1),
+        id: `error_${timestamp}`,
         type: 'bot',
         content: '',
         localContent: 'Error generating response. Please try again.',

@@ -2,6 +2,7 @@ from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 import torch
 from typing import Dict, List, Optional
 import os
+from .groq_service import is_groq_available, generate_answer_groq, generate_notes_groq, generate_quiz_groq
 
 # Model configuration
 MODEL_NAME = "google/flan-t5-small"
@@ -34,7 +35,7 @@ def load_model():
             )
         except ImportError:
             # Fallback to FP16 if 8-bit not available
-            model = AutoModelForSeqForSeq2SeqLM.from_pretrained(
+            model = AutoModelForSeq2SeqLM.from_pretrained(
                 MODEL_NAME,
                 cache_dir=CACHE_DIR,
                 torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32
@@ -54,6 +55,7 @@ def generate_answer(
 ) -> List[Dict[str, str]]:
     """
     Generate an answer based on the given prompt.
+    Uses Groq API if available, falls back to local model.
     
     Args:
         prompt: The input prompt/question
@@ -69,6 +71,14 @@ def generate_answer(
     if not prompt.strip():
         return [{"text": "", "score": 0.0}]
     
+    # Try Groq API first
+    if is_groq_available():
+        try:
+            return generate_answer_groq(prompt, max_length, temperature)
+        except Exception as e:
+            print(f"Groq API error, falling back to local model: {e}")
+    
+    # Fallback to local model
     model, tokenizer = load_model()
     
     # Tokenize input
@@ -113,10 +123,30 @@ def generate_answer(
 
 def generate_notes(text: str, **kwargs) -> List[Dict[str, str]]:
     """Generate study notes from the given text."""
+    # Try Groq API first
+    if is_groq_available():
+        try:
+            max_length = kwargs.get('max_length', 500)
+            temperature = kwargs.get('temperature', 0.7)
+            return generate_notes_groq(text, max_length, temperature)
+        except Exception as e:
+            print(f"Groq API error, falling back to local model: {e}")
+    
+    # Fallback to local model
     prompt = f"Summarize the following text into concise study notes:\n\n{text}"
     return generate_answer(prompt, **kwargs)
 
 def generate_quiz(text: str, num_questions: int = 5, **kwargs) -> List[Dict[str, str]]:
     """Generate a quiz with questions and answers from the given text."""
+    # Try Groq API first
+    if is_groq_available():
+        try:
+            max_length = kwargs.get('max_length', 1000)
+            temperature = kwargs.get('temperature', 0.7)
+            return generate_quiz_groq(text, num_questions, max_length, temperature)
+        except Exception as e:
+            print(f"Groq API error, falling back to local model: {e}")
+    
+    # Fallback to local model
     prompt = f"Generate {num_questions} multiple-choice questions with answers based on the following text. Format each question with 'Q:' and options as 'A)', 'B)', etc. with the correct answer marked with [CORRECT]:\n\n{text}"
     return generate_answer(prompt, **kwargs)

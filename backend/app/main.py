@@ -3,6 +3,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Dict, List, Optional, Union
 import logging
+import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Import ML services
 from .services.ml.language_detector import detect_language
@@ -84,11 +89,8 @@ async def root():
 @app.post("/detect-language", response_model=LanguageDetectionResponse)
 async def detect_language_endpoint(request: LanguageDetectionRequest):
     try:
-        lang, confidence = detect_language(request.text)
-        return {
-            "language": lang,
-            "confidence": confidence
-        }
+        result = detect_language(request.text)
+        return result
     except Exception as e:
         logger.error(f"Error in language detection: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
