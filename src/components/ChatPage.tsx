@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, Send, Mic, MicOff } from 'lucide-react';
+import { ArrowLeft, Send, Mic, MicOff, AlertCircle } from 'lucide-react';
 import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
-import { generateAnswer, speechToText, isSpeechRecognitionSupported } from '../services/ml';
+import { speechToText, isSpeechRecognitionSupported } from '../services/ml';
+import { generateAnswer } from '../services/mlBackend';
 
 interface ChatPageProps {
   selectedLanguage: string;

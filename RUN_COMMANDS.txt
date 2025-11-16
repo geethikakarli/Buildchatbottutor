@@ -1,0 +1,111 @@
+================================================================================
+CHATBOT TUTOR - ML MODELS INTEGRATION
+Run These Commands Only
+================================================================================
+
+STEP 1: OPEN FIRST TERMINAL (Backend)
+================================================================================
+
+cd c:\Users\K GEETHIKA\Downloads\Buildchatbottutor\backend
+
+python -m venv venv
+
+.\venv\Scripts\activate
+
+pip install -r requirements.txt
+
+cd app
+
+uvicorn main:app --reload
+
+[WAIT FOR: "Uvicorn running on http://127.0.0.1:8000"]
+
+
+STEP 2: OPEN SECOND TERMINAL (Frontend)
+================================================================================
+
+cd c:\Users\K GEETHIKA\Downloads\Buildchatbottutor
+
+npm install
+
+npm run dev
+
+[WAIT FOR: "Local: http://localhost:5173/"]
+
+
+STEP 3: OPEN BROWSER
+================================================================================
+
+Visit: http://localhost:5173
+
+
+STEP 4: TEST THE APPLICATION
+================================================================================
+
+1. Chat Page:
+   - Select language (Hindi/Telugu/Tamil/Kannada/English)
+   - Ask: "What is photosynthesis?"
+   - See bilingual response
+
+2. Notes Page:
+   - Click "+" button
+   - Subject: "Science"
+   - Topic: "Photosynthesis"
+   - Get bilingual notes
+
+3. Quiz Page:
+   - Click "+" button
+   - Subject: "Science"
+   - Topic: "Photosynthesis"
+   - Take quiz
+
+
+USEFUL LINKS
+================================================================================
+
+Frontend App:        http://localhost:5173
+Backend API:         http://localhost:8000
+API Documentation:   http://localhost:8000/docs
+Alternative Docs:    http://localhost:8000/redoc
+
+
+NOTES
+================================================================================
+
+- First request takes 2-3 minutes (models downloading)
+- Subsequent requests are fast (< 5 seconds)
+- Models cache locally in backend/models/
+- Total model size: ~200 MB
+- No GPU required
+
+
+TROUBLESHOOTING
+================================================================================
+
+Backend won't start:
+  - Check if port 8000 is in use
+  - netstat -ano | findstr :8000
+  - taskkill /PID <PID> /F
+
+Frontend won't connect:
+  - Check .env file has: VITE_API_BASE_URL=http://localhost:8000
+  - Verify backend is running
+  - Check browser console
+
+Models not downloading:
+  - Check internet connection
+  - Ensure 200 MB disk space
+  - Check backend logs
+
+
+DOCUMENTATION
+================================================================================
+
+Quick Start:           QUICK_START.md
+Integration Guide:     ML_INTEGRATION_GUIDE.md
+Implementation:        IMPLEMENTATION_SUMMARY.md
+Backend Setup:         backend/README.md
+
+================================================================================
+Ready? Start with STEP 1 above!
+================================================================================

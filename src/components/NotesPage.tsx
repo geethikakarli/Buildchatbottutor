@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from './ui/select';
-import { generateNotes } from '../services/ml';
+import { generateNotes } from '../services/mlBackend';
 
 interface NotesPageProps {
   selectedLanguage: string;

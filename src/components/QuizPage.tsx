@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from './ui/select';
-import { generateQuiz } from '../services/ml';
+import { generateQuiz } from '../services/mlBackend';
 
 interface QuizPageProps {
   selectedLanguage: string;
