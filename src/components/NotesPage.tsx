@@ -6,6 +6,7 @@ import { Label } from './ui/label';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -254,6 +255,9 @@ export function NotesPage({
             <DialogContent className="max-w-md">
               <DialogHeader>
                 <DialogTitle>Generate New Notes</DialogTitle>
+                <DialogDescription>
+                  Select a subject and topic to generate study notes in your preferred language.
+                </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
                 <div>

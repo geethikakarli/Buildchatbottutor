@@ -6,6 +6,7 @@ import { Label } from './ui/label';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -74,6 +75,23 @@ export function QuizPage({
   selectedLanguage: string;
   onBack: () => void;
 }) {
+  // Safety check for student prop
+  if (!student || !student.subjects) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <p className="text-gray-600 mb-4">Loading student data...</p>
+          <button
+            onClick={onBack}
+            className="text-blue-600 hover:text-blue-700"
+          >
+            Go Back
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [activeQuiz, setActiveQuiz] = useState<Quiz | null>(null);
   const [quizAttempt, setQuizAttempt] = useState<QuizAttempt>({
@@ -397,6 +415,9 @@ export function QuizPage({
             <DialogContent className="max-w-md">
               <DialogHeader>
                 <DialogTitle>Generate New Quiz</DialogTitle>
+                <DialogDescription>
+                  Select a subject and topic to generate a practice quiz in your preferred language.
+                </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
                 <div>
