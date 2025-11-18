@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { ArrowLeft, Plus, Trophy, CheckCircle2, XCircle } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { ArrowLeft, Plus, Trophy, CheckCircle2, XCircle, RefreshCw } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -19,9 +19,17 @@ import {
 } from './ui/select';
 import { generateQuiz } from '../services/mlBackend';
 
-interface QuizPageProps {
-  selectedLanguage: string;
-  onBack: () => void;
+interface StudentProfile {
+  id: string;
+  email: string;
+  name: string;
+  grade: string;
+  school: string;
+  subjects: string[];
+  preparationStatus: string;
+  targetExam: string;
+  goals: string[];
+  studyHours: string;
 }
 
 interface Question {
@@ -50,117 +58,22 @@ interface QuizAttempt {
 }
 
 const languageNames: Record<string, string> = {
-  hi: 'Hindi',
-  te: 'Telugu',
-  ta: 'Tamil',
-  kn: 'Kannada',
+  hi: 'हिंदी',
+  te: 'తెలుగు',
+  ta: 'தமிழ்',
+  kn: 'ಕನ್ನಡ',
   en: 'English',
 };
 
-const mockQuizData: Record<string, Question[]> = {
-  hi: [
-    {
-      id: 'q1',
-      questionLocal: 'प्रकाश संश्लेषण के लिए कौन सा अंग जिम्मेदार है?',
-      questionEnglish: 'Which organelle is responsible for photosynthesis?',
-      options: ['माइटोकॉन्ड्रिया / Mitochondria', 'क्लोरोप्लास्ट / Chloroplast', 'राइबोसोम / Ribosome', 'न्यूक्लियस / Nucleus'],
-      correctAnswer: 1,
-      explanationLocal: 'क्लोरोप्लास्ट में क्लोरोफिल होता है जो प्रकाश को अवशोषित करता है।',
-      explanationEnglish: 'Chloroplasts contain chlorophyll which absorbs light.',
-    },
-    {
-      id: 'q2',
-      questionLocal: 'प्रकाश संश्लेषण का उत्पाद क्या है?',
-      questionEnglish: 'What is the product of photosynthesis?',
-      options: ['CO2', 'H2O', 'ग्लूकोज / Glucose', 'N2'],
-      correctAnswer: 2,
-      explanationLocal: 'प्रकाश संश्लेषण ग्लूकोज और ऑक्सीजन का उत्पादन करता है।',
-      explanationEnglish: 'Photosynthesis produces glucose and oxygen.',
-    },
-  ],
-  te: [
-    {
-      id: 'q1',
-      questionLocal: 'కిరణజన్య సంయోగక్రియకు బాధ్యత వహించే అవయవం ఏది?',
-      questionEnglish: 'Which organelle is responsible for photosynthesis?',
-      options: ['మైటోకాండ్రియా / Mitochondria', 'క్లోరోప్లాస్ట్ / Chloroplast', 'రైబోజోమ్ / Ribosome', 'న్యూక్లియస్ / Nucleus'],
-      correctAnswer: 1,
-      explanationLocal: 'క్లోరోప్లాస్ట్‌లో క్లోరోఫిల్ ఉంటుంది, ఇది కాంతిని గ్రహిస్తుంది.',
-      explanationEnglish: 'Chloroplasts contain chlorophyll which absorbs light.',
-    },
-    {
-      id: 'q2',
-      questionLocal: 'కిరణజన్య సంయోగక్రియ ఉత్పత్తి ఏమిటి?',
-      questionEnglish: 'What is the product of photosynthesis?',
-      options: ['CO2', 'H2O', 'గ్లూకోజ్ / Glucose', 'N2'],
-      correctAnswer: 2,
-      explanationLocal: 'కిరణజన్య సంయోగక్రియ గ్లూకోజ్ మరియు ఆక్సిజన్‌ను ఉత్పత్తి చేస్తుంది.',
-      explanationEnglish: 'Photosynthesis produces glucose and oxygen.',
-    },
-  ],
-  ta: [
-    {
-      id: 'q1',
-      questionLocal: 'ஒளிச்சேர்க்கைக்கு எந்த உறுப்பு பொறுப்பு?',
-      questionEnglish: 'Which organelle is responsible for photosynthesis?',
-      options: ['மைட்டோகாண்ட்ரியா / Mitochondria', 'குளோரோபிளாஸ்ட் / Chloroplast', 'ரைபோசோம் / Ribosome', 'நியூக்ளியஸ் / Nucleus'],
-      correctAnswer: 1,
-      explanationLocal: 'குளோரோபிளாஸ்ட்களில் குளோரோபில் உள்ளது, இது ஒளியை உறிஞ்சுகிறது.',
-      explanationEnglish: 'Chloroplasts contain chlorophyll which absorbs light.',
-    },
-    {
-      id: 'q2',
-      questionLocal: 'ஒளிச்சேர்க்கையின் விளைபொருள் என்ன?',
-      questionEnglish: 'What is the product of photosynthesis?',
-      options: ['CO2', 'H2O', 'குளுக்கோஸ் / Glucose', 'N2'],
-      correctAnswer: 2,
-      explanationLocal: 'ஒளிச்சேர்க்கை குளுக்கோஸ் மற்றும் ஆக்ஸிஜனை உற்பத்தி செய்கிறது.',
-      explanationEnglish: 'Photosynthesis produces glucose and oxygen.',
-    },
-  ],
-  kn: [
-    {
-      id: 'q1',
-      questionLocal: 'ದ್ಯುತಿಸಂಶ್ಲೇಷಣೆಗೆ ಯಾವ ಅಂಗಕ ಜವಾಬ್ದಾರ?',
-      questionEnglish: 'Which organelle is responsible for photosynthesis?',
-      options: ['ಮೈಟೊಕಾಂಡ್ರಿಯಾ / Mitochondria', 'ಕ್ಲೋರೊಪ್ಲಾಸ್ಟ್ / Chloroplast', 'ರೈಬೋಸೋಮ್ / Ribosome', 'ನ್ಯೂಕ್ಲಿಯಸ್ / Nucleus'],
-      correctAnswer: 1,
-      explanationLocal: 'ಕ್ಲೋರೊಪ್ಲಾಸ್ಟ್‌ಗಳು ಕ್ಲೋರೊಫಿಲ್ ಹೊಂದಿರುತ್ತವೆ, ಇದು ಬೆಳಕನ್ನು ಹೀರಿಕೊಳ್ಳುತ್ತದೆ.',
-      explanationEnglish: 'Chloroplasts contain chlorophyll which absorbs light.',
-    },
-    {
-      id: 'q2',
-      questionLocal: 'ದ್ಯುತಿಸಂಶ್ಲೇಷಣೆಯ ಉತ್ಪನ್ನ ಏನು?',
-      questionEnglish: 'What is the product of photosynthesis?',
-      options: ['CO2', 'H2O', 'ಗ್ಲೂಕೋಸ್ / Glucose', 'N2'],
-      correctAnswer: 2,
-      explanationLocal: 'ದ್ಯುತಿಸಂಶ್ಲೇಷಣೆ ಗ್ಲೂಕೋಸ್ ಮತ್ತು ಆಮ್ಲಜನಕವನ್ನು ಉತ್ಪಾದಿಸುತ್ತದೆ.',
-      explanationEnglish: 'Photosynthesis produces glucose and oxygen.',
-    },
-  ],
-  en: [
-    {
-      id: 'q1',
-      questionLocal: 'Which organelle is responsible for photosynthesis?',
-      questionEnglish: 'Which organelle is responsible for photosynthesis?',
-      options: ['Mitochondria', 'Chloroplast', 'Ribosome', 'Nucleus'],
-      correctAnswer: 1,
-      explanationLocal: 'Chloroplasts contain chlorophyll which absorbs light energy.',
-      explanationEnglish: 'Chloroplasts are the site of photosynthesis in plant cells. They contain chlorophyll pigments that capture light energy.',
-    },
-    {
-      id: 'q2',
-      questionLocal: 'What is the main product of photosynthesis?',
-      questionEnglish: 'What is the main product of photosynthesis?',
-      options: ['Carbon Dioxide', 'Water', 'Glucose', 'Nitrogen'],
-      correctAnswer: 2,
-      explanationLocal: 'Photosynthesis produces glucose and oxygen as products.',
-      explanationEnglish: 'The main products are glucose (C6H12O6) which stores chemical energy, and oxygen (O2) which is released as a byproduct.',
-    },
-  ],
-};
-
-export function QuizPage({ selectedLanguage, onBack }: QuizPageProps) {
+export function QuizPage({
+  student,
+  selectedLanguage,
+  onBack,
+}: {
+  student: StudentProfile;
+  selectedLanguage: string;
+  onBack: () => void;
+}) {
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [activeQuiz, setActiveQuiz] = useState<Quiz | null>(null);
   const [quizAttempt, setQuizAttempt] = useState<QuizAttempt>({
@@ -170,9 +83,55 @@ export function QuizPage({ selectedLanguage, onBack }: QuizPageProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  // Form state
   const [subject, setSubject] = useState('');
   const [topic, setTopic] = useState('');
+
+  const updateProgress = (subject: string, score: number, totalQuestions: number) => {
+    try {
+      const progressKey = `progress_${student.id}`;
+      const savedProgress = localStorage.getItem(progressKey);
+      const progress = savedProgress ? JSON.parse(savedProgress) : {};
+
+      progress.quizzesCompleted = (progress.quizzesCompleted || 0) + 1;
+      progress.totalQuestionsAnswered = (progress.totalQuestionsAnswered || 0) + totalQuestions;
+      progress.correctAnswers = (progress.correctAnswers || 0) + score;
+
+      progress.accuracy =
+        progress.totalQuestionsAnswered > 0
+          ? Math.round((progress.correctAnswers / progress.totalQuestionsAnswered) * 100)
+          : 0;
+
+      if (!progress.subjectProgress) {
+        progress.subjectProgress = {};
+      }
+      progress.subjectProgress[subject] = (progress.subjectProgress[subject] || 0) + 10;
+
+      const lastActivityTime = progress.lastActivityTime || 0;
+      const now = Date.now();
+      const hoursSinceLastActivity = (now - lastActivityTime) / (1000 * 60 * 60);
+
+      if (hoursSinceLastActivity < 24) {
+        progress.currentStreak = (progress.currentStreak || 0) + 1;
+      } else {
+        progress.currentStreak = 1;
+      }
+      progress.lastActivityTime = now;
+
+      if (!progress.recentActivity) {
+        progress.recentActivity = [];
+      }
+      progress.recentActivity.unshift({
+        type: 'quiz',
+        description: `Completed quiz: ${subject} - ${topic} (${score}/${totalQuestions})`,
+        timestamp: new Date().toISOString(),
+      });
+      progress.recentActivity = progress.recentActivity.slice(0, 10);
+
+      localStorage.setItem(progressKey, JSON.stringify(progress));
+    } catch (error) {
+      console.error('Error updating progress:', error);
+    }
+  };
 
   const handleGenerateQuiz = async () => {
     if (!subject || !topic) return;
@@ -181,7 +140,6 @@ export function QuizPage({ selectedLanguage, onBack }: QuizPageProps) {
     setIsDialogOpen(false);
 
     try {
-      // Use ML service to generate quiz
       const quizData = await generateQuiz({
         subject: subject,
         topic: topic,
@@ -199,8 +157,10 @@ export function QuizPage({ selectedLanguage, onBack }: QuizPageProps) {
       };
 
       setQuizzes((prev) => [newQuiz, ...prev]);
+      setActiveQuiz(newQuiz);
       setSubject('');
       setTopic('');
+      setQuizAttempt({ answers: {}, submitted: false });
     } catch (error) {
       console.error('Error generating quiz:', error);
     } finally {
@@ -208,23 +168,13 @@ export function QuizPage({ selectedLanguage, onBack }: QuizPageProps) {
     }
   };
 
-  const handleStartQuiz = (quiz: Quiz) => {
-    setActiveQuiz(quiz);
-    setQuizAttempt({
-      answers: {},
-      submitted: false,
-    });
-  };
-
-  const handleSelectAnswer = (questionId: string, answerIndex: number) => {
-    if (quizAttempt.submitted) return;
-    setQuizAttempt((prev) => ({
-      ...prev,
-      answers: {
-        ...prev.answers,
-        [questionId]: answerIndex,
-      },
-    }));
+  const handleAnswerChange = (questionId: string, optionIndex: number) => {
+    if (!quizAttempt.submitted) {
+      setQuizAttempt((prev) => ({
+        ...prev,
+        answers: { ...prev.answers, [questionId]: optionIndex },
+      }));
+    }
   };
 
   const handleSubmitQuiz = () => {
@@ -236,14 +186,13 @@ export function QuizPage({ selectedLanguage, onBack }: QuizPageProps) {
 
     setQuizAttempt((prev) => ({ ...prev, submitted: true }));
 
-    // Update quiz in list
     setQuizzes((prev) =>
       prev.map((q) =>
-        q.id === activeQuiz.id
-          ? { ...q, completed: true, score: score }
-          : q
+        q.id === activeQuiz.id ? { ...q, completed: true, score: score } : q
       )
     );
+
+    updateProgress(activeQuiz.subject, score, activeQuiz.questions.length);
   };
 
   const handleBackToList = () => {
@@ -251,146 +200,177 @@ export function QuizPage({ selectedLanguage, onBack }: QuizPageProps) {
     setQuizAttempt({ answers: {}, submitted: false });
   };
 
+  const isQuestionAnswered = (questionId: string) => {
+    return quizAttempt.answers[questionId] !== undefined;
+  };
+
   if (activeQuiz) {
     const score = activeQuiz.questions.reduce((acc, question) => {
       return quizAttempt.answers[question.id] === question.correctAnswer ? acc + 1 : acc;
     }, 0);
 
+    const allAnswered = activeQuiz.questions.every((q) => isQuestionAnswered(q.id));
+
     return (
       <div className="flex flex-col h-full bg-gray-50">
         {/* Header */}
-        <div className="bg-white border-b border-gray-200 px-4 py-3">
-          <div className="flex items-center gap-3">
-            <button onClick={handleBackToList} className="text-gray-600">
+        <div className="bg-white border-b border-gray-200 px-4 py-3 sticky top-0 z-10">
+          <div className="flex items-center justify-between gap-3 max-w-4xl mx-auto">
+            <button
+              onClick={handleBackToList}
+              className="text-gray-600 hover:text-gray-900"
+            >
               <ArrowLeft className="w-6 h-6" />
             </button>
             <div className="flex-1">
-              <h2 className="text-gray-900">{activeQuiz.title}</h2>
-              <p className="text-gray-600">{activeQuiz.subject}</p>
+              <h2 className="text-lg font-semibold text-gray-900">
+                {activeQuiz.title}
+              </h2>
+              <p className="text-sm text-gray-600">{activeQuiz.subject}</p>
             </div>
             {quizAttempt.submitted && (
               <div className="text-right">
-                <div className="text-gray-900">
+                <p className="text-lg font-bold text-green-600">
                   {score}/{activeQuiz.questions.length}
-                </div>
-                <div className="text-gray-600">Score</div>
+                </p>
+                <p className="text-xs text-gray-600">
+                  {Math.round((score / activeQuiz.questions.length) * 100)}%
+                </p>
               </div>
             )}
           </div>
         </div>
 
-        {/* Questions */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {activeQuiz.questions.map((question, index) => {
-            const selectedAnswer = quizAttempt.answers[question.id];
-            const isCorrect = selectedAnswer === question.correctAnswer;
-            const showResult = quizAttempt.submitted;
+        {/* Content */}
+        <div className="flex-1 overflow-auto">
+          <div className="max-w-4xl mx-auto p-6 space-y-6">
+            {activeQuiz.questions.map((question, index) => {
+              const isAnswered = isQuestionAnswered(question.id);
+              const selectedAnswer = quizAttempt.answers[question.id];
+              const isCorrect = selectedAnswer === question.correctAnswer;
 
-            return (
-              <div key={question.id} className="bg-white rounded-xl p-4 shadow-sm">
-                {/* Question Number & Text */}
-                <div className="mb-4">
-                  <div className="flex items-start gap-3 mb-3">
-                    <div className="bg-blue-100 text-blue-600 rounded-full w-8 h-8 flex items-center justify-center flex-shrink-0">
-                      {index + 1}
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-gray-900 mb-2">{question.questionLocal}</p>
-                      <p className="text-gray-600">{question.questionEnglish}</p>
-                    </div>
-                    {showResult && (
-                      <div>
-                        {isCorrect ? (
-                          <CheckCircle2 className="w-6 h-6 text-green-600" />
-                        ) : (
-                          <XCircle className="w-6 h-6 text-red-600" />
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Options */}
-                <div className="space-y-2 mb-4">
-                  {question.options.map((option, optionIndex) => {
-                    const isSelected = selectedAnswer === optionIndex;
-                    const isCorrectOption = optionIndex === question.correctAnswer;
-                    
-                    let optionClass = 'border-2 border-gray-200 bg-white';
-                    if (showResult) {
-                      if (isCorrectOption) {
-                        optionClass = 'border-2 border-green-500 bg-green-50';
-                      } else if (isSelected && !isCorrect) {
-                        optionClass = 'border-2 border-red-500 bg-red-50';
-                      }
-                    } else if (isSelected) {
-                      optionClass = 'border-2 border-blue-500 bg-blue-50';
-                    }
-
-                    return (
-                      <button
-                        key={optionIndex}
-                        onClick={() => handleSelectAnswer(question.id, optionIndex)}
-                        disabled={quizAttempt.submitted}
-                        className={`w-full text-left p-3 rounded-lg transition-all ${optionClass} ${
-                          !quizAttempt.submitted ? 'hover:border-blue-300' : ''
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                            isSelected ? 'border-blue-600' : 'border-gray-300'
-                          }`}>
-                            {isSelected && (
-                              <div className="w-3 h-3 rounded-full bg-blue-600" />
-                            )}
-                          </div>
-                          <span className="text-gray-900">{option}</span>
+              return (
+                <div key={question.id} className="bg-white rounded-lg p-6 border border-gray-200">
+                  {/* Question */}
+                  <div className="mb-4">
+                    <div className="flex items-start justify-between mb-2">
+                      <h3 className="font-semibold text-gray-900">
+                        Question {index + 1}
+                      </h3>
+                      {quizAttempt.submitted && isAnswered && (
+                        <div>
+                          {isCorrect ? (
+                            <CheckCircle2 className="w-5 h-5 text-green-600" />
+                          ) : (
+                            <XCircle className="w-5 h-5 text-red-600" />
+                          )}
                         </div>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Explanation */}
-                {showResult && (
-                  <div className="pt-3 border-t border-gray-200">
-                    <div className="text-blue-600 mb-2">Explanation</div>
-                    <p className="text-gray-900 mb-1">{question.explanationLocal}</p>
-                    <p className="text-gray-600">{question.explanationEnglish}</p>
+                      )}
+                    </div>
+                    <p className="text-gray-700 mb-4">
+                      {selectedLanguage === 'en'
+                        ? question.questionEnglish
+                        : question.questionLocal}
+                    </p>
                   </div>
-                )}
-              </div>
-            );
-          })}
+
+                  {/* Options */}
+                  <div className="space-y-2 mb-4">
+                    {question.options.map((option, optIndex) => {
+                      const isSelected = selectedAnswer === optIndex;
+                      const isCorrectOption = optIndex === question.correctAnswer;
+
+                      let bgColor = 'bg-gray-50 border-gray-200';
+                      let textColor = 'text-gray-900';
+
+                      if (quizAttempt.submitted) {
+                        if (isCorrectOption) {
+                          bgColor = 'bg-green-50 border-green-500';
+                          textColor = 'text-green-900';
+                        } else if (isSelected && !isCorrect) {
+                          bgColor = 'bg-red-50 border-red-500';
+                          textColor = 'text-red-900';
+                        }
+                      } else if (isSelected) {
+                        bgColor = 'bg-blue-50 border-blue-500';
+                        textColor = 'text-blue-900';
+                      }
+
+                      return (
+                        <button
+                          key={optIndex}
+                          onClick={() => handleAnswerChange(question.id, optIndex)}
+                          disabled={quizAttempt.submitted}
+                          className={`w-full text-left p-3 rounded-lg border-2 transition-all ${bgColor} ${textColor} disabled:opacity-75`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div
+                              className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                                isSelected
+                                  ? 'border-current bg-current text-white'
+                                  : 'border-gray-300'
+                              }`}
+                            >
+                              {isSelected && <div className="w-2 h-2 bg-white rounded-full" />}
+                            </div>
+                            <span>{option}</span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Explanation (after submission) */}
+                  {quizAttempt.submitted && isAnswered && (
+                    <div className="mt-4 p-3 rounded-lg bg-blue-50 border border-blue-200">
+                      <p className="text-sm font-semibold text-blue-900 mb-1">Explanation:</p>
+                      <p className="text-sm text-blue-800">
+                        {selectedLanguage === 'en'
+                          ? question.explanationEnglish
+                          : question.explanationLocal}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
 
-        {/* Submit Button */}
+        {/* Footer */}
         {!quizAttempt.submitted && (
-          <div className="bg-white border-t border-gray-200 p-4">
-            <Button
-              onClick={handleSubmitQuiz}
-              disabled={Object.keys(quizAttempt.answers).length !== activeQuiz.questions.length}
-              className="w-full max-w-lg mx-auto block"
-            >
-              Submit Quiz
-            </Button>
+          <div className="bg-white border-t border-gray-200 px-4 py-3 sticky bottom-0">
+            <div className="max-w-4xl mx-auto flex justify-between">
+              <div className="text-sm text-gray-600">
+                {Object.keys(quizAttempt.answers).length}/{activeQuiz.questions.length} answered
+              </div>
+              <Button
+                onClick={handleSubmitQuiz}
+                disabled={!allAnswered}
+                className="gap-2"
+              >
+                <Trophy className="w-4 h-4" />
+                Submit Quiz
+              </Button>
+            </div>
           </div>
         )}
 
-        {/* Result */}
         {quizAttempt.submitted && (
-          <div className="bg-white border-t border-gray-200 p-4">
-            <div className="max-w-lg mx-auto text-center">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-3">
-                <Trophy className="w-8 h-8 text-blue-600" />
-              </div>
-              <h3 className="text-gray-900 mb-1">Quiz Complete!</h3>
-              <p className="text-gray-600 mb-4">
-                You scored {score} out of {activeQuiz.questions.length}
-              </p>
-              <Button onClick={handleBackToList} className="w-full">
+          <div className="bg-white border-t border-gray-200 px-4 py-3 sticky bottom-0">
+            <div className="max-w-4xl mx-auto flex justify-between">
+              <Button variant="outline" onClick={handleBackToList}>
+                <ArrowLeft className="w-4 h-4 mr-2" />
                 Back to Quizzes
               </Button>
+              <div className="text-center">
+                <p className="text-2xl font-bold text-green-600">
+                  {score}/{activeQuiz.questions.length}
+                </p>
+                <p className="text-sm text-gray-600">
+                  {Math.round((score / activeQuiz.questions.length) * 100)}%
+                </p>
+              </div>
             </div>
           </div>
         )}
@@ -401,44 +381,39 @@ export function QuizPage({ selectedLanguage, onBack }: QuizPageProps) {
   return (
     <div className="flex flex-col h-full bg-gray-50">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-4 py-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button onClick={onBack} className="text-gray-600">
-              <ArrowLeft className="w-6 h-6" />
-            </button>
-            <div>
-              <h2 className="text-gray-900">Quizzes</h2>
-              <p className="text-gray-600">{quizzes.length} quizzes</p>
-            </div>
-          </div>
-
+      <div className="bg-white border-b border-gray-200 px-4 py-3 sticky top-0 z-10">
+        <div className="flex items-center justify-between gap-3 max-w-4xl mx-auto">
+          <button onClick={onBack} className="text-gray-600 hover:text-gray-900">
+            <ArrowLeft className="w-6 h-6" />
+          </button>
+          <h1 className="text-lg font-semibold text-gray-900">Practice Quiz</h1>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="rounded-full h-10 w-10 p-0">
-                <Plus className="w-5 h-5" />
+              <Button size="sm" className="gap-2">
+                <Plus className="w-4 h-4" />
+                New Quiz
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-md">
               <DialogHeader>
                 <DialogTitle>Generate New Quiz</DialogTitle>
               </DialogHeader>
-              <div className="space-y-4 pt-4">
+              <div className="space-y-4">
                 <div>
                   <Label htmlFor="subject">Subject</Label>
                   <Select value={subject} onValueChange={setSubject}>
-                    <SelectTrigger className="mt-1.5">
-                      <SelectValue placeholder="Select subject" />
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a subject" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="science">Science</SelectItem>
-                      <SelectItem value="math">Mathematics</SelectItem>
-                      <SelectItem value="history">History</SelectItem>
-                      <SelectItem value="geography">Geography</SelectItem>
+                      {student.subjects.map((subj) => (
+                        <SelectItem key={subj} value={subj}>
+                          {subj}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
-
                 <div>
                   <Label htmlFor="topic">Topic</Label>
                   <Input
@@ -446,10 +421,8 @@ export function QuizPage({ selectedLanguage, onBack }: QuizPageProps) {
                     placeholder="e.g., Photosynthesis"
                     value={topic}
                     onChange={(e) => setTopic(e.target.value)}
-                    className="mt-1.5"
                   />
                 </div>
-
                 <Button
                   onClick={handleGenerateQuiz}
                   disabled={!subject || !topic || isGenerating}
@@ -463,62 +436,52 @@ export function QuizPage({ selectedLanguage, onBack }: QuizPageProps) {
         </div>
       </div>
 
-      {/* Quiz List */}
-      <div className="flex-1 overflow-y-auto p-4">
-        {isGenerating && (
-          <div className="bg-white rounded-xl p-6 shadow-sm text-center mb-4">
-            <div className="inline-flex items-center justify-center w-12 h-12 bg-blue-100 rounded-full mb-3">
-              <Trophy className="w-6 h-6 text-blue-600 animate-pulse" />
+      {/* Content */}
+      <div className="flex-1 overflow-auto">
+        <div className="max-w-4xl mx-auto p-4">
+          {quizzes.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-96">
+              <Trophy className="w-12 h-12 text-gray-300 mb-3" />
+              <p className="text-gray-600 text-center">
+                No quizzes yet. Create your first quiz!
+              </p>
             </div>
-            <p className="text-gray-900">Generating bilingual quiz...</p>
-            <p className="text-gray-600">Creating MCQs with explanations</p>
-          </div>
-        )}
-
-        {quizzes.length === 0 && !isGenerating && (
-          <div className="text-center py-12">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
-              <Trophy className="w-8 h-8 text-blue-600" />
-            </div>
-            <h3 className="text-gray-900 mb-2">No Quizzes Yet</h3>
-            <p className="text-gray-600 mb-6 max-w-sm mx-auto">
-              Generate bilingual quizzes to test your knowledge in {languageNames[selectedLanguage]} and English
-            </p>
-          </div>
-        )}
-
-        <div className="grid gap-3">
-          {quizzes.map((quiz) => (
-            <div
-              key={quiz.id}
-              className="bg-white rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow"
-            >
-              <div className="flex items-start justify-between mb-3">
-                <div>
-                  <h3 className="text-gray-900 mb-1">{quiz.title}</h3>
-                  <p className="text-gray-600">{quiz.subject}</p>
-                </div>
-                {quiz.completed && quiz.score !== undefined && (
-                  <div className="bg-green-100 text-green-700 px-3 py-1 rounded-full">
-                    {quiz.score}/{quiz.questions.length}
-                  </div>
-                )}
-              </div>
-
-              <div className="flex items-center justify-between">
-                <p className="text-gray-500">
-                  {quiz.questions.length} questions
-                </p>
-                <Button
-                  onClick={() => handleStartQuiz(quiz)}
-                  size="sm"
-                  variant={quiz.completed ? 'outline' : 'default'}
+          ) : (
+            <div className="grid gap-3">
+              {quizzes.map((quiz) => (
+                <button
+                  key={quiz.id}
+                  onClick={() => {
+                    setActiveQuiz(quiz);
+                    setQuizAttempt({ answers: {}, submitted: false });
+                  }}
+                  className="bg-white rounded-lg p-4 border border-gray-200 hover:border-blue-500 hover:shadow-md transition-all text-left"
                 >
-                  {quiz.completed ? 'Review' : 'Start Quiz'}
-                </Button>
-              </div>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-gray-900">
+                        {quiz.title}
+                      </h3>
+                      <p className="text-sm text-gray-600">{quiz.subject}</p>
+                      <p className="text-xs text-gray-500 mt-2">
+                        {quiz.questions.length} questions
+                      </p>
+                    </div>
+                    {quiz.completed && (
+                      <div className="text-right">
+                        <div className="text-lg font-bold text-green-600">
+                          {quiz.score}/{quiz.questions.length}
+                        </div>
+                        <p className="text-xs text-gray-600">
+                          {Math.round(((quiz.score || 0) / quiz.questions.length) * 100)}%
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </button>
+              ))}
             </div>
-          ))}
+          )}
         </div>
       </div>
     </div>

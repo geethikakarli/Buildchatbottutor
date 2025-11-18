@@ -14,6 +14,7 @@ from .services.ml.language_detector import detect_language
 from .services.ml.intent_classifier import classify_intent
 from .services.ml.answer_generator import generate_answer, generate_notes, generate_quiz
 from .services.ml.translator import translate_text, SUPPORTED_LANGUAGES, LANG_CODE_MAP
+from .services.ml.groq_service import is_groq_available
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -34,6 +35,22 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Startup event
+@app.on_event("startup")
+async def startup_event():
+    """Initialize and log API status on startup"""
+    logger.info("=" * 60)
+    logger.info("🚀 Chatbot Tutor API Starting...")
+    logger.info("=" * 60)
+    
+    # Check Groq availability
+    if is_groq_available():
+        logger.info("✅ Groq API is ENABLED - Using Groq for faster inference")
+    else:
+        logger.warning("⚠️  Groq API not configured - Using local models")
+    
+    logger.info("=" * 60)
 
 # Request/Response Models
 class LanguageDetectionRequest(BaseModel):

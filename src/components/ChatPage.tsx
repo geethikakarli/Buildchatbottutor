@@ -5,7 +5,21 @@ import { Textarea } from './ui/textarea';
 import { speechToText, isSpeechRecognitionSupported } from '../services/ml';
 import { generateAnswer } from '../services/mlBackend';
 
+interface StudentProfile {
+  id: string;
+  email: string;
+  name: string;
+  grade: string;
+  school: string;
+  subjects: string[];
+  preparationStatus: string;
+  targetExam: string;
+  goals: string[];
+  studyHours: string;
+}
+
 interface ChatPageProps {
+  student: StudentProfile;
   selectedLanguage: string;
   onBack: () => void;
 }
@@ -27,13 +41,41 @@ const languageNames: Record<string, string> = {
   en: 'English',
 };
 
-export function ChatPage({ selectedLanguage, onBack }: ChatPageProps) {
+export function ChatPage({ student, selectedLanguage, onBack }: ChatPageProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const speechSupported = isSpeechRecognitionSupported();
+  const processingRequestRef = useRef<string | null>(null);
+
+  const updateProgress = (question: string) => {
+    try {
+      const progressKey = `progress_${student.id}`;
+      const savedProgress = localStorage.getItem(progressKey);
+      const progress = savedProgress ? JSON.parse(savedProgress) : {};
+      
+      // Increment question counter
+      progress.totalQuestionsAsked = (progress.totalQuestionsAsked || 0) + 1;
+      
+      // Track activity
+      if (!progress.recentActivity) {
+        progress.recentActivity = [];
+      }
+      progress.recentActivity.unshift({
+        type: 'question',
+        description: `Asked: "${question.substring(0, 50)}${question.length > 50 ? '...' : ''}"`,
+        timestamp: new Date().toISOString(),
+      });
+      // Keep only last 10 activities
+      progress.recentActivity = progress.recentActivity.slice(0, 10);
+      
+      localStorage.setItem(progressKey, JSON.stringify(progress));
+    } catch (error) {
+      console.error('Error updating progress:', error);
+    }
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -44,9 +86,17 @@ export function ChatPage({ selectedLanguage, onBack }: ChatPageProps) {
   }, [messages]);
 
   const handleSendMessage = async () => {
-    if (!inputText.trim()) return;
+    if (!inputText.trim() || isLoading) return;
+
+    // Prevent duplicate requests
+    if (processingRequestRef.current !== null) {
+      return;
+    }
 
     const timestamp = Date.now();
+    const requestId = `req_${timestamp}`;
+    processingRequestRef.current = requestId;
+
     const userMessage: Message = {
       id: `user_${timestamp}`,
       type: 'user',
@@ -54,9 +104,16 @@ export function ChatPage({ selectedLanguage, onBack }: ChatPageProps) {
       timestamp: new Date(),
     };
 
-    setMessages((prev) => [...prev, userMessage]);
+    // Reset input immediately
     const question = inputText;
     setInputText('');
+    
+    // Track this question in progress
+    updateProgress(question);
+    
+    // Add user message to state
+    setMessages((prev) => [...prev, userMessage]);
+    
     setIsLoading(true);
 
     try {
@@ -66,29 +123,39 @@ export function ChatPage({ selectedLanguage, onBack }: ChatPageProps) {
         language: selectedLanguage,
       });
 
-      const botMessage: Message = {
-        id: `bot_${timestamp}`,
-        type: 'bot',
-        content: '',
-        localContent: response.localLanguage.text,
-        englishContent: response.english.text,
-        timestamp: new Date(),
-      };
+      // Only add message if this is still the current request
+      if (processingRequestRef.current === requestId) {
+        const botMessage: Message = {
+          id: `bot_${timestamp}`,
+          type: 'bot',
+          content: '',
+          localContent: response.localLanguage.text,
+          englishContent: response.english.text,
+          timestamp: new Date(),
+        };
 
-      setMessages((prev) => [...prev, botMessage]);
+        setMessages((prev) => [...prev, botMessage]);
+      }
     } catch (error) {
       console.error('Error generating answer:', error);
-      // Fallback to mock response on error
-      const botMessage: Message = {
-        id: `error_${timestamp}`,
-        type: 'bot',
-        content: '',
-        localContent: 'Error generating response. Please try again.',
-        englishContent: 'Error generating response. Please try again.',
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, botMessage]);
+      
+      // Only add error message if this is still the current request
+      if (processingRequestRef.current === requestId) {
+        const errorMessage: Message = {
+          id: `error_${timestamp}`,
+          type: 'bot',
+          content: '',
+          localContent: 'Error generating response. Please try again.',
+          englishContent: 'Error generating response. Please try again.',
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, errorMessage]);
+      }
     } finally {
+      // Clear the processing request marker
+      if (processingRequestRef.current === requestId) {
+        processingRequestRef.current = null;
+      }
       setIsLoading(false);
     }
   };
@@ -116,7 +183,7 @@ export function ChatPage({ selectedLanguage, onBack }: ChatPageProps) {
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'Enter' && !e.shiftKey && !isLoading) {
       e.preventDefault();
       handleSendMessage();
     }

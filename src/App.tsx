@@ -8,14 +8,21 @@ import { Home, MessageSquare, FileText, Brain, BarChart3 } from 'lucide-react';
 
 type Page = 'home' | 'chat' | 'notes' | 'quiz' | 'dashboard';
 
-interface User {
+interface StudentProfile {
   id: string;
   email: string;
   name: string;
+  grade: string;
+  school: string;
+  subjects: string[];
+  preparationStatus: string;
+  targetExam: string;
+  goals: string[];
+  studyHours: string;
 }
 
 export default function App() {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<StudentProfile | null>(null);
   const [currentPage, setCurrentPage] = useState<Page>('home');
   const [selectedLanguage, setSelectedLanguage] = useState<string>('hi');
 
@@ -27,7 +34,7 @@ export default function App() {
     }
   }, []);
 
-  const handleLogin = (userData: User) => {
+  const handleLogin = (userData: StudentProfile) => {
     setUser(userData);
     localStorage.setItem('user', JSON.stringify(userData));
     setCurrentPage('home');
@@ -58,25 +65,32 @@ export default function App() {
         )}
         {currentPage === 'chat' && (
           <ChatPage
+            student={user}
             selectedLanguage={selectedLanguage}
             onBack={() => setCurrentPage('home')}
           />
         )}
         {currentPage === 'notes' && (
           <NotesPage
+            student={user}
             selectedLanguage={selectedLanguage}
             onBack={() => setCurrentPage('home')}
           />
         )}
         {currentPage === 'quiz' && (
           <QuizPage
+            student={user}
             selectedLanguage={selectedLanguage}
             onBack={() => setCurrentPage('home')}
           />
         )}
         {currentPage === 'dashboard' && (
           <DashboardPage
+            student={user}
             onBack={() => setCurrentPage('home')}
+            onNavigateToChat={() => setCurrentPage('chat')}
+            onNavigateToNotes={() => setCurrentPage('notes')}
+            onNavigateToQuiz={() => setCurrentPage('quiz')}
           />
         )}
       </div>

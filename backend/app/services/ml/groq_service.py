@@ -42,12 +42,12 @@ def generate_answer_groq(
     temperature: float = 0.7,
 ) -> List[Dict[str, str]]:
     """
-    Generate an answer using Groq API.
+    Generate an answer using Groq API with token limiting.
     
     Args:
         prompt: The input prompt/question
-        max_tokens: Maximum tokens in response
-        temperature: Controls randomness
+        max_tokens: Maximum tokens in response (limited to 1024 for complex queries)
+        temperature: Controls randomness (0.0 to 2.0)
         
     Returns:
         List of dictionaries containing generated answers
@@ -58,11 +58,28 @@ def generate_answer_groq(
     if not prompt.strip():
         return [{"text": "", "score": 0.0}]
     
+    # Token limiting for complex queries
+    # Limit max_tokens based on query complexity
+    if len(prompt.split()) > 100:
+        # Complex query - limit tokens more strictly
+        max_tokens = min(max_tokens, 512)
+        logger.info(f"Complex query detected - limiting tokens to {max_tokens}")
+    else:
+        # Simple query - allow more tokens
+        max_tokens = min(max_tokens, 1024)
+    
+    # Ensure temperature is within valid range
+    temperature = max(0.0, min(2.0, temperature))
+    
     try:
-        message = client.messages.create(
+        logger.info(f"Groq API call: model={MODEL_NAME}, max_tokens={max_tokens}, temp={temperature}")
+        
+        message = client.chat.completions.create(
             model=MODEL_NAME,
             max_tokens=max_tokens,
             temperature=temperature,
+            top_p=0.95,
+            top_k=40,
             messages=[
                 {
                     "role": "user",
@@ -72,7 +89,11 @@ def generate_answer_groq(
         )
         
         # Extract the response text
-        response_text = message.content[0].text if message.content else ""
+        response_text = message.choices[0].message.content if message.choices else ""
+        
+        # Log token usage
+        if hasattr(message, 'usage'):
+            logger.info(f"Tokens used - Input: {message.usage.prompt_tokens}, Output: {message.usage.completion_tokens}")
         
         return [
             {
@@ -81,6 +102,7 @@ def generate_answer_groq(
             }
         ]
     except Exception as e:
+        logger.error(f"Groq API error: {str(e)}")
         raise Exception(f"Groq API error: {str(e)}")
 
 
@@ -89,7 +111,7 @@ def generate_notes_groq(
     max_tokens: int = 500,
     temperature: float = 0.7,
 ) -> List[Dict[str, str]]:
-    """Generate study notes using Groq API."""
+    """Generate study notes using Groq API with token limiting."""
     prompt = f"""Generate comprehensive and well-structured study notes for the following topic:
 
 {text}
@@ -102,6 +124,8 @@ Please provide:
 
 Format the notes clearly with sections and bullet points."""
     
+    # For notes, use higher token limit (up to 1024)
+    max_tokens = min(max_tokens, 1024)
     return generate_answer_groq(prompt, max_tokens, temperature)
 
 
@@ -111,7 +135,7 @@ def generate_quiz_groq(
     max_tokens: int = 1000,
     temperature: float = 0.7,
 ) -> List[Dict[str, str]]:
-    """Generate quiz questions using Groq API."""
+    """Generate quiz questions using Groq API with token limiting."""
     prompt = f"""Generate {num_questions} multiple-choice questions based on the following topic:
 
 {text}
@@ -124,4 +148,6 @@ For each question, provide:
 
 Format each question clearly with Q: prefix and options with A), B), C), D) prefixes."""
     
+    # For quiz, use higher token limit (up to 2048 for complex queries)
+    max_tokens = min(max_tokens, 2048)
     return generate_answer_groq(prompt, max_tokens, temperature)

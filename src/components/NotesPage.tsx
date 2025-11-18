@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, Plus, FileText, Download, Trash2 } from 'lucide-react';
+import { ArrowLeft, Plus, Download, Trash2, Copy, Check } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -19,9 +19,17 @@ import {
 } from './ui/select';
 import { generateNotes } from '../services/mlBackend';
 
-interface NotesPageProps {
-  selectedLanguage: string;
-  onBack: () => void;
+interface StudentProfile {
+  id: string;
+  email: string;
+  name: string;
+  grade: string;
+  school: string;
+  subjects: string[];
+  preparationStatus: string;
+  targetExam: string;
+  goals: string[];
+  studyHours: string;
 }
 
 interface Note {
@@ -35,22 +43,59 @@ interface Note {
 }
 
 const languageNames: Record<string, string> = {
-  hi: 'Hindi',
-  te: 'Telugu',
-  ta: 'Tamil',
-  kn: 'Kannada',
+  hi: 'हिंदी',
+  te: 'తెలుగు',
+  ta: 'தமிழ்',
+  kn: 'ಕನ್ನಡ',
   en: 'English',
 };
 
-export function NotesPage({ selectedLanguage, onBack }: NotesPageProps) {
+export function NotesPage({
+  student,
+  selectedLanguage,
+  onBack,
+}: {
+  student: StudentProfile;
+  selectedLanguage: string;
+  onBack: () => void;
+}) {
   const [notes, setNotes] = useState<Note[]>([]);
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [copiedNoteId, setCopiedNoteId] = useState<string | null>(null);
 
-  // Form state
   const [subject, setSubject] = useState('');
   const [topic, setTopic] = useState('');
+
+  const updateProgress = (subject: string, topic: string) => {
+    try {
+      const progressKey = `progress_${student.id}`;
+      const savedProgress = localStorage.getItem(progressKey);
+      const progress = savedProgress ? JSON.parse(savedProgress) : {};
+
+      progress.notesGenerated = (progress.notesGenerated || 0) + 1;
+
+      if (!progress.subjectProgress) {
+        progress.subjectProgress = {};
+      }
+      progress.subjectProgress[subject] = (progress.subjectProgress[subject] || 0) + 20;
+
+      if (!progress.recentActivity) {
+        progress.recentActivity = [];
+      }
+      progress.recentActivity.unshift({
+        type: 'notes',
+        description: `Generated notes: ${subject} - ${topic}`,
+        timestamp: new Date().toISOString(),
+      });
+      progress.recentActivity = progress.recentActivity.slice(0, 10);
+
+      localStorage.setItem(progressKey, JSON.stringify(progress));
+    } catch (error) {
+      console.error('Error updating progress:', error);
+    }
+  };
 
   const handleGenerateNotes = async () => {
     if (!subject || !topic) return;
@@ -59,7 +104,6 @@ export function NotesPage({ selectedLanguage, onBack }: NotesPageProps) {
     setIsDialogOpen(false);
 
     try {
-      // Use ML service to generate notes
       const content = await generateNotes({
         subject: subject,
         topic: topic,
@@ -76,6 +120,7 @@ export function NotesPage({ selectedLanguage, onBack }: NotesPageProps) {
         createdAt: new Date(),
       };
 
+      updateProgress(subject, topic);
       setNotes((prev) => [newNote, ...prev]);
       setSubject('');
       setTopic('');
@@ -93,16 +138,20 @@ export function NotesPage({ selectedLanguage, onBack }: NotesPageProps) {
     }
   };
 
+  const handleCopyToClipboard = (text: string, noteId: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedNoteId(noteId);
+    setTimeout(() => setCopiedNoteId(null), 2000);
+  };
+
   const handleDownloadNote = (note: Note) => {
     const content = `${note.title}\n\n${languageNames[selectedLanguage]}:\n${note.localContent}\n\nEnglish:\n${note.englishContent}`;
     const blob = new Blob([content], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${note.title.replace(/\s+/g, '_')}.txt`;
-    document.body.appendChild(a);
+    a.download = `${note.title}.txt`;
     a.click();
-    document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
 
@@ -110,36 +159,73 @@ export function NotesPage({ selectedLanguage, onBack }: NotesPageProps) {
     return (
       <div className="flex flex-col h-full bg-gray-50">
         {/* Header */}
-        <div className="bg-white border-b border-gray-200 px-4 py-3">
-          <div className="flex items-center gap-3 mb-2">
-            <button onClick={() => setSelectedNote(null)} className="text-gray-600">
+        <div className="bg-white border-b border-gray-200 px-4 py-3 sticky top-0 z-10">
+          <div className="flex items-center justify-between gap-3 max-w-4xl mx-auto">
+            <button
+              onClick={() => setSelectedNote(null)}
+              className="text-gray-600 hover:text-gray-900"
+            >
               <ArrowLeft className="w-6 h-6" />
             </button>
             <div className="flex-1">
-              <h2 className="text-gray-900">{selectedNote.title}</h2>
-              <p className="text-gray-600">{selectedNote.subject}</p>
+              <h2 className="text-lg font-semibold text-gray-900">
+                {selectedNote.title}
+              </h2>
+              <p className="text-sm text-gray-600">{selectedNote.subject}</p>
             </div>
-            <button
-              onClick={() => handleDownloadNote(selectedNote)}
-              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
-            >
-              <Download className="w-5 h-5" />
-            </button>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() =>
+                  handleCopyToClipboard(selectedNote.localContent, selectedNote.id)
+                }
+              >
+                {copiedNoteId === selectedNote.id ? (
+                  <Check className="w-4 h-4" />
+                ) : (
+                  <Copy className="w-4 h-4" />
+                )}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handleDownloadNote(selectedNote)}
+              >
+                <Download className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-6">
-          {/* Local Language */}
-          <div className="bg-white rounded-xl p-4 shadow-sm">
-            <div className="text-blue-600 mb-3">{languageNames[selectedLanguage]}</div>
-            <div className="text-gray-900 whitespace-pre-wrap">{selectedNote.localContent}</div>
-          </div>
+        <div className="flex-1 overflow-auto">
+          <div className="max-w-4xl mx-auto p-6 space-y-8">
+            {/* Local Language Version */}
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                {languageNames[selectedLanguage]}
+              </h3>
+              <div className="bg-white rounded-lg p-6 border border-gray-200">
+                <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">
+                  {selectedNote.localContent}
+                </p>
+              </div>
+            </div>
 
-          {/* English */}
-          <div className="bg-white rounded-xl p-4 shadow-sm">
-            <div className="text-blue-600 mb-3">English Translation</div>
-            <div className="text-gray-900 whitespace-pre-wrap">{selectedNote.englishContent}</div>
+            {/* English Version */}
+            {selectedLanguage !== 'en' && (
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                  English
+                </h3>
+                <div className="bg-white rounded-lg p-6 border border-gray-200">
+                  <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">
+                    {selectedNote.englishContent}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -149,44 +235,42 @@ export function NotesPage({ selectedLanguage, onBack }: NotesPageProps) {
   return (
     <div className="flex flex-col h-full bg-gray-50">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-4 py-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button onClick={onBack} className="text-gray-600">
-              <ArrowLeft className="w-6 h-6" />
-            </button>
-            <div>
-              <h2 className="text-gray-900">My Notes</h2>
-              <p className="text-gray-600">{notes.length} notes</p>
-            </div>
-          </div>
-
+      <div className="bg-white border-b border-gray-200 px-4 py-3 sticky top-0 z-10">
+        <div className="flex items-center justify-between gap-3 max-w-4xl mx-auto">
+          <button
+            onClick={onBack}
+            className="text-gray-600 hover:text-gray-900"
+          >
+            <ArrowLeft className="w-6 h-6" />
+          </button>
+          <h1 className="text-lg font-semibold text-gray-900">Study Notes</h1>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="rounded-full h-10 w-10 p-0">
-                <Plus className="w-5 h-5" />
+              <Button size="sm" className="gap-2">
+                <Plus className="w-4 h-4" />
+                Generate Notes
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-md">
               <DialogHeader>
                 <DialogTitle>Generate New Notes</DialogTitle>
               </DialogHeader>
-              <div className="space-y-4 pt-4">
+              <div className="space-y-4">
                 <div>
                   <Label htmlFor="subject">Subject</Label>
                   <Select value={subject} onValueChange={setSubject}>
-                    <SelectTrigger className="mt-1.5">
-                      <SelectValue placeholder="Select subject" />
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a subject" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="science">Science</SelectItem>
-                      <SelectItem value="math">Mathematics</SelectItem>
-                      <SelectItem value="history">History</SelectItem>
-                      <SelectItem value="geography">Geography</SelectItem>
+                      {student.subjects.map((subj) => (
+                        <SelectItem key={subj} value={subj}>
+                          {subj}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
-
                 <div>
                   <Label htmlFor="topic">Topic</Label>
                   <Input
@@ -194,16 +278,14 @@ export function NotesPage({ selectedLanguage, onBack }: NotesPageProps) {
                     placeholder="e.g., Photosynthesis"
                     value={topic}
                     onChange={(e) => setTopic(e.target.value)}
-                    className="mt-1.5"
                   />
                 </div>
-
                 <Button
                   onClick={handleGenerateNotes}
                   disabled={!subject || !topic || isGenerating}
                   className="w-full"
                 >
-                  {isGenerating ? 'Generating...' : 'Generate Notes'}
+                  {isGenerating ? 'Generating...' : 'Generate'}
                 </Button>
               </div>
             </DialogContent>
@@ -211,68 +293,47 @@ export function NotesPage({ selectedLanguage, onBack }: NotesPageProps) {
         </div>
       </div>
 
-      {/* Notes List */}
-      <div className="flex-1 overflow-y-auto p-4">
-        {isGenerating && (
-          <div className="bg-white rounded-xl p-6 shadow-sm text-center mb-4">
-            <div className="inline-flex items-center justify-center w-12 h-12 bg-blue-100 rounded-full mb-3">
-              <FileText className="w-6 h-6 text-blue-600 animate-pulse" />
+      {/* Content */}
+      <div className="flex-1 overflow-auto">
+        <div className="max-w-4xl mx-auto p-4">
+          {notes.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-96">
+              <p className="text-gray-600 text-center">
+                No notes yet. Create your first study notes!
+              </p>
             </div>
-            <p className="text-gray-900">Generating bilingual notes...</p>
-            <p className="text-gray-600">This may take a few moments</p>
-          </div>
-        )}
-
-        {notes.length === 0 && !isGenerating && (
-          <div className="text-center py-12">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
-              <FileText className="w-8 h-8 text-blue-600" />
-            </div>
-            <h3 className="text-gray-900 mb-2">No Notes Yet</h3>
-            <p className="text-gray-600 mb-6 max-w-sm mx-auto">
-              Generate bilingual study notes for any topic in {languageNames[selectedLanguage]} and English
-            </p>
-          </div>
-        )}
-
-        <div className="grid gap-3">
-          {notes.map((note) => (
-            <div
-              key={note.id}
-              className="bg-white rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow"
-            >
-              <div className="flex items-start gap-3">
-                <div
+          ) : (
+            <div className="grid gap-3">
+              {notes.map((note) => (
+                <button
+                  key={note.id}
                   onClick={() => setSelectedNote(note)}
-                  className="flex-1 cursor-pointer"
+                  className="bg-white rounded-lg p-4 border border-gray-200 hover:border-blue-500 hover:shadow-md transition-all text-left"
                 >
-                  <h3 className="text-gray-900 mb-1">{note.title}</h3>
-                  <p className="text-gray-600 mb-2">{note.subject}</p>
-                  <p className="text-gray-500">
-                    {note.createdAt.toLocaleDateString('en-IN', {
-                      day: 'numeric',
-                      month: 'short',
-                      year: 'numeric',
-                    })}
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handleDownloadNote(note)}
-                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
-                  >
-                    <Download className="w-5 h-5" />
-                  </button>
-                  <button
-                    onClick={() => handleDeleteNote(note.id)}
-                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-gray-900">
+                        {note.title}
+                      </h3>
+                      <p className="text-sm text-gray-600">{note.subject}</p>
+                      <p className="text-xs text-gray-500 mt-2">
+                        {new Date(note.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteNote(note.id);
+                      }}
+                      className="text-gray-400 hover:text-red-600"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
+                  </div>
+                </button>
+              ))}
             </div>
-          ))}
+          )}
         </div>
       </div>
     </div>
