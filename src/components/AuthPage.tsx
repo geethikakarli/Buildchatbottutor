@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { GraduationCap, ChevronRight, ChevronLeft, CheckCircle2 } from 'lucide-react';
+import { ChevronRight, ChevronLeft, CheckCircle2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -140,9 +140,11 @@ export function AuthPage({ onLogin }: AuthPageProps) {
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 max-h-[90vh] overflow-y-auto">
         {/* Logo & Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-2xl mb-4">
-            <GraduationCap className="w-8 h-8 text-blue-600" />
-          </div>
+          <img 
+            src="/assets/ap_logo.png" 
+            alt="Chatbot Tutor Logo" 
+            className="w-16 h-16 mx-auto mb-4 object-contain"
+          />
           <h1 className="text-gray-900 mb-2">Chatbot Tutor</h1>
           <p className="text-gray-600">Learn in your language</p>
         </div>
@@ -447,24 +449,7 @@ export function AuthPage({ onLogin }: AuthPageProps) {
           </form>
         )}
 
-        {/* Demo Notice */}
-        <div className="mt-6 p-3 bg-blue-50 rounded-lg border border-blue-100">
-          <p className="text-blue-800 text-sm">
-            <strong>Demo Mode:</strong> Use any credentials to try the app
-          </p>
-        </div>
 
-        {/* Supported Languages */}
-        <div className="mt-6 text-center">
-          <p className="text-gray-600 mb-2 text-sm">Supported Languages:</p>
-          <div className="flex gap-2 justify-center flex-wrap">
-            <span className="px-3 py-1 bg-gray-100 rounded-full text-xs">हिंदी</span>
-            <span className="px-3 py-1 bg-gray-100 rounded-full text-xs">తెలుగు</span>
-            <span className="px-3 py-1 bg-gray-100 rounded-full text-xs">தமிழ்</span>
-            <span className="px-3 py-1 bg-gray-100 rounded-full text-xs">ಕನ್ನಡ</span>
-            <span className="px-3 py-1 bg-gray-100 rounded-full text-xs">English</span>
-          </div>
-        </div>
       </div>
     </div>
   );

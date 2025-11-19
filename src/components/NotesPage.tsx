@@ -11,13 +11,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from './ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from './ui/select';
 
 interface StudentProfile {
   id: string;
@@ -225,24 +218,18 @@ export function NotesPage({
               <DialogHeader>
                 <DialogTitle>Generate Study Notes</DialogTitle>
                 <DialogDescription>
-                  Select a subject and topic to generate comprehensive study notes.
+                  Enter a subject and topic to generate comprehensive study notes.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
                 <div>
                   <Label htmlFor="subject">Subject</Label>
-                  <Select value={subject} onValueChange={setSubject}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a subject" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {student.subjects.map((subj) => (
-                        <SelectItem key={subj} value={subj}>
-                          {subj}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Input
+                    id="subject"
+                    placeholder="e.g., Biology, Mathematics, History"
+                    value={subject}
+                    onChange={(e) => setSubject(e.target.value)}
+                  />
                 </div>
                 <div>
                   <Label htmlFor="topic">Topic</Label>
