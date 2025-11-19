@@ -141,7 +141,7 @@ export function AuthPage({ onLogin }: AuthPageProps) {
         {/* Logo & Header */}
         <div className="text-center mb-8">
           <img 
-            src="/assets/ap_logo.png" 
+            src="/assets/app_logo.png" 
             alt="Chatbot Tutor Logo" 
             className="w-16 h-16 mx-auto mb-4 object-contain"
           />
