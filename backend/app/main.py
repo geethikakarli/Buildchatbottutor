@@ -1,5 +1,6 @@
-from fastapi import FastAPI, HTTPException, Depends, status
+from fastapi import FastAPI, HTTPException, Depends, status, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 from typing import Dict, List, Optional, Union
 import logging
@@ -10,6 +11,13 @@ import asyncio
 
 # Load environment variables from .env file
 load_dotenv()
+
+# Read allowed origins from environment (comma-separated), default to allow all
+ALLOWED_ORIGINS_RAW = os.getenv('ALLOWED_ORIGINS', '*')
+if ALLOWED_ORIGINS_RAW.strip() == '*':
+    ALLOWED_ORIGINS = ["*"]
+else:
+    ALLOWED_ORIGINS = [o.strip() for o in ALLOWED_ORIGINS_RAW.split(',') if o.strip()]
 
 # Import ML services
 from .services.ml.language_detector import detect_language
@@ -35,11 +43,33 @@ executor = ThreadPoolExecutor(max_workers=4)
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, replace with your frontend URL
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# Fallback handler for CORS preflight requests. Some proxies or platforms
+# may not forward OPTIONS requests to the app correctly; this explicit
+# handler ensures a proper preflight response is returned.
+@app.options("/{rest_of_path:path}")
+async def preflight_handler(rest_of_path: str, request: Request):
+    origin = request.headers.get("origin") or "*"
+
+    # If ALLOWED_ORIGINS contains '*', allow any origin; otherwise only allow configured origins
+    if ALLOWED_ORIGINS == ["*"]:
+        allow_origin = origin
+    else:
+        allow_origin = origin if origin in ALLOWED_ORIGINS else (ALLOWED_ORIGINS[0] if ALLOWED_ORIGINS else "*")
+
+    headers = {
+        "Access-Control-Allow-Origin": allow_origin,
+        "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+        "Access-Control-Allow-Headers": "Authorization,Content-Type,Accept",
+        "Access-Control-Allow-Credentials": "true",
+    }
+    return PlainTextResponse("", status_code=200, headers=headers)
 
 # Startup event
 @app.on_event("startup")
