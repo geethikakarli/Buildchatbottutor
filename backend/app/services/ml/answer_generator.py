@@ -74,65 +74,88 @@ def generate_answer(
     # Try Groq API first
     if is_groq_available():
         try:
-            return generate_answer_groq(prompt, max_length, temperature)
+            print(f"[ANSWER_GEN] Attempting Groq API...")
+            result = generate_answer_groq(prompt, max_length, temperature)
+            print(f"[ANSWER_GEN] ✓ Successfully got answer from Groq")
+            return result
         except Exception as e:
-            print(f"Groq API error, falling back to local model: {e}")
+            print(f"[ANSWER_GEN] ✗ Groq failed: {e}")
+            import traceback
+            traceback.print_exc()
+    else:
+        print(f"[ANSWER_GEN] Groq not available")
     
     # Fallback to local model
-    model, tokenizer = load_model()
-    
-    # Tokenize input
-    inputs = tokenizer(
-        prompt,
-        return_tensors="pt",
-        truncation=True,
-        max_length=512,
-        padding=True
-    )
-    
-    # Move to device (GPU if available)
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    inputs = {k: v.to(device) for k, v in inputs.items()}
-    
-    # Generate output
-    with torch.no_grad():
-        outputs = model.generate(
-            **inputs,
-            max_length=max_length,
-            temperature=temperature,
-            top_p=top_p,
-            top_k=top_k,
-            num_return_sequences=num_return_sequences,
-            do_sample=True,
-            no_repeat_ngram_size=3,
-            early_stopping=True
+    print(f"[ANSWER_GEN] Falling back to local model...")
+    try:
+        model, tokenizer = load_model()
+        
+        # Tokenize input
+        inputs = tokenizer(
+            prompt,
+            return_tensors="pt",
+            truncation=True,
+            max_length=512,
+            padding=True
         )
-    
-    # Decode and process outputs
-    results = []
-    for i, output in enumerate(outputs):
-        text = tokenizer.decode(output, skip_special_tokens=True)
-        # Simple heuristic for score (can be replaced with model scores if available)
-        score = 1.0 - (i * 0.1)  # First result has highest score
-        results.append({
-            "text": text,
-            "score": min(max(score, 0), 1.0)  # Ensure score is between 0 and 1
-        })
-    
-    return results
+        
+        # Move to device (GPU if available)
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        inputs = {k: v.to(device) for k, v in inputs.items()}
+        
+        # Generate output
+        with torch.no_grad():
+            outputs = model.generate(
+                **inputs,
+                max_length=max_length,
+                temperature=temperature,
+                top_p=top_p,
+                top_k=top_k,
+                num_return_sequences=num_return_sequences,
+                do_sample=True,
+                no_repeat_ngram_size=3,
+                early_stopping=True
+            )
+        
+        # Decode and process outputs
+        results = []
+        for i, output in enumerate(outputs):
+            text = tokenizer.decode(output, skip_special_tokens=True)
+            # Simple heuristic for score (can be replaced with model scores if available)
+            score = 1.0 - (i * 0.1)  # First result has highest score
+            results.append({
+                "text": text,
+                "score": min(max(score, 0), 1.0)  # Ensure score is between 0 and 1
+            })
+        
+        print(f"[ANSWER_GEN] ✓ Got answer from local model")
+        return results
+    except Exception as e:
+        print(f"[ANSWER_GEN] ✗ Local model also failed: {e}")
+        import traceback
+        traceback.print_exc()
+        return [{"text": "Error generating answer", "score": 0.0}]
 
 def generate_notes(text: str, **kwargs) -> List[Dict[str, str]]:
     """Generate study notes from the given text."""
     # Try Groq API first
     if is_groq_available():
         try:
+            print(f"[GROQ] Attempting to generate notes using Groq API...")
             max_length = kwargs.get('max_length', 500)
             temperature = kwargs.get('temperature', 0.7)
-            return generate_notes_groq(text, max_length, temperature)
+            result = generate_notes_groq(text, max_length, temperature)
+            print(f"[GROQ] ✓ Successfully used Groq API for notes")
+            return result
         except Exception as e:
-            print(f"Groq API error, falling back to local model: {e}")
+            print(f"[GROQ] ✗ Groq API error for notes: {e}")
+            import traceback
+            traceback.print_exc()
+    else:
+        print(f"[GROQ] Groq API not available for notes")
     
     # Fallback to local model
+    print(f"[LOCAL] Falling back to local ML model for notes...")
     prompt = f"Summarize the following text into concise study notes:\n\n{text}"
     return generate_answer(prompt, **kwargs)
 
@@ -141,12 +164,20 @@ def generate_quiz(text: str, num_questions: int = 5, **kwargs) -> List[Dict[str,
     # Try Groq API first
     if is_groq_available():
         try:
+            print(f"[GROQ] Attempting to generate quiz using Groq API...")
             max_length = kwargs.get('max_length', 1000)
             temperature = kwargs.get('temperature', 0.7)
-            return generate_quiz_groq(text, num_questions, max_length, temperature)
+            result = generate_quiz_groq(text, num_questions, max_length, temperature)
+            print(f"[GROQ] ✓ Successfully used Groq API for quiz")
+            return result
         except Exception as e:
-            print(f"Groq API error, falling back to local model: {e}")
+            print(f"[GROQ] ✗ Groq API error for quiz: {e}")
+            import traceback
+            traceback.print_exc()
+    else:
+        print(f"[GROQ] Groq API not available for quiz")
     
     # Fallback to local model
+    print(f"[LOCAL] Falling back to local ML model for quiz...")
     prompt = f"Generate {num_questions} multiple-choice questions with answers based on the following text. Format each question with 'Q:' and options as 'A)', 'B)', etc. with the correct answer marked with [CORRECT]:\n\n{text}"
     return generate_answer(prompt, **kwargs)

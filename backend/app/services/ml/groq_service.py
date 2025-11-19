@@ -8,24 +8,43 @@ import logging
 from groq import Groq
 from typing import List, Dict
 from dotenv import load_dotenv
+import sys
 
-# Load environment variables
-load_dotenv()
+# Load environment variables from backend/.env explicitly
+env_path = os.path.join(os.path.dirname(__file__), '../../../.env')
+load_dotenv(env_path)
 
 logger = logging.getLogger(__name__)
 
 # Initialize Groq client
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
+print(f"[GROQ_SERVICE] GROQ_API_KEY present: {bool(GROQ_API_KEY)}")
+print(f"[GROQ_SERVICE] API Key (first 10 chars): {GROQ_API_KEY[:10] if GROQ_API_KEY else 'None'}")
+
+client = None
+try:
+    if GROQ_API_KEY:
+        print(f"[GROQ_SERVICE] Initializing Groq client...")
+        client = Groq(api_key=GROQ_API_KEY)
+        print(f"[GROQ_SERVICE] Groq client initialized successfully")
+        logger.info(f"Groq API Key loaded successfully")
+    else:
+        print(f"[GROQ_SERVICE] No API key found")
+except Exception as e:
+    print(f"[GROQ_SERVICE] Failed to initialize Groq client: {e}")
+    logger.warning(f"Failed to initialize Groq client: {e}")
+    client = None
 
 # Model configuration
-MODEL_NAME = "mixtral-8x7b-32768"  # Fast and powerful model
+# Using Groq's available models
+# Check https://console.groq.com/docs/models for the latest available models
+MODEL_NAME = "llama-3.1-8b-instant"  # Groq's fast model (mixtral and llama-3.1-70b are decommissioned)
 
 # Log Groq status
-if GROQ_API_KEY:
-    logger.info(f"✓ Groq API Key loaded successfully")
+if client is not None:
+    print(f"[GROQ_SERVICE] Groq API is AVAILABLE")
 else:
-    logger.warning("✗ Groq API Key not found - will use local models")
+    print(f"[GROQ_SERVICE] Groq API NOT available")
 
 
 def is_groq_available() -> bool:
@@ -72,38 +91,58 @@ def generate_answer_groq(
     temperature = max(0.0, min(2.0, temperature))
     
     try:
-        logger.info(f"Groq API call: model={MODEL_NAME}, max_tokens={max_tokens}, temp={temperature}")
+        print(f"[GROQ] Calling Groq API...")
+        print(f"[GROQ] Client: {client is not None}")
+        print(f"[GROQ] Model: {MODEL_NAME}")
+        print(f"[GROQ] Max tokens: {max_tokens}")
         
-        message = client.chat.completions.create(
-            model=MODEL_NAME,
-            max_tokens=max_tokens,
-            temperature=temperature,
-            top_p=0.95,
-            top_k=40,
-            messages=[
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ]
-        )
+        # Use a simple timeout mechanism
+        import signal
         
-        # Extract the response text
-        response_text = message.choices[0].message.content if message.choices else ""
+        def timeout_handler(signum, frame):
+            raise TimeoutError("Groq API request timed out")
         
-        # Log token usage
-        if hasattr(message, 'usage'):
-            logger.info(f"Tokens used - Input: {message.usage.prompt_tokens}, Output: {message.usage.completion_tokens}")
+        # Set 30 second timeout
+        #signal.signal(signal.SIGALRM, timeout_handler)
+        #signal.alarm(30)
         
-        return [
-            {
-                "text": response_text,
-                "score": 0.95
-            }
-        ]
+        try:
+            print(f"[GROQ] Making API call...")
+            message = client.chat.completions.create(
+                model=MODEL_NAME,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ]
+            )
+            
+            #signal.alarm(0)  # Cancel alarm
+            
+            print(f"[GROQ] Got response from API")
+            
+            # Extract the response text
+            if message.choices and len(message.choices) > 0:
+                response_text = message.choices[0].message.content
+                print(f"[GROQ] Response success: {len(response_text)} chars")
+                return [{"text": response_text, "score": 0.95}]
+            else:
+                print(f"[GROQ] No choices in response")
+                return [{"text": "No response generated", "score": 0.0}]
+                
+        except TimeoutError as te:
+            print(f"[GROQ] Timeout: {te}")
+            raise
+        
     except Exception as e:
+        print(f"[GROQ] Exception: {type(e).__name__}: {str(e)}")
+        import traceback
+        traceback.print_exc()
         logger.error(f"Groq API error: {str(e)}")
-        raise Exception(f"Groq API error: {str(e)}")
+        raise
 
 
 def generate_notes_groq(

@@ -5,6 +5,8 @@ from typing import Dict, List, Optional, Union
 import logging
 import os
 from dotenv import load_dotenv
+from concurrent.futures import ThreadPoolExecutor
+import asyncio
 
 # Load environment variables from .env file
 load_dotenv()
@@ -26,6 +28,9 @@ app = FastAPI(
     description="API for the Chatbot Tutor application with ML models",
     version="1.0.0"
 )
+
+# Thread pool for running sync functions
+executor = ThreadPoolExecutor(max_workers=4)
 
 # Add CORS middleware
 app.add_middleware(
@@ -144,15 +149,25 @@ async def translate_endpoint(request: TranslationRequest):
 
 # Answer generation endpoint
 @app.post("/generate-answer", response_model=AnswerGenerationResponse)
-async def generate_answer_endpoint(request: AnswerGenerationRequest):
+def generate_answer_endpoint(request: AnswerGenerationRequest):
+    """Generate an answer for the given prompt."""
     try:
+        print(f"[ENDPOINT] /generate-answer called")
+        logger.info(f"[ENDPOINT] Generating answer for prompt...")
+        
         answers = generate_answer(
             prompt=request.prompt,
             max_length=request.max_length,
             temperature=request.temperature
         )
+        
+        print(f"[ENDPOINT] Answer generated successfully")
+        logger.info(f"[ENDPOINT] Successfully generated answers")
         return {"answers": answers}
     except Exception as e:
+        print(f"[ENDPOINT] Exception: {type(e).__name__}: {str(e)}")
+        import traceback
+        traceback.print_exc()
         logger.error(f"Error in answer generation: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
