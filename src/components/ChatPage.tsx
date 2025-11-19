@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { generateAnswer } from '../services/api';
 import { ArrowLeft, Send, Loader } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -72,26 +73,15 @@ export function ChatPage({
       setMessages((prev) => [...prev, userMessage]);
       setInputValue('');
 
-      // Call Groq API
-      const response = await fetch('http://127.0.0.1:8000/generate-answer', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          prompt: inputValue,
-          max_length: 1024,
-          temperature: 0.7,
-        }),
+      // Call backend API helper
+      const data = await generateAnswer({
+        prompt: inputValue,
+        max_length: 1024,
+        temperature: 0.7,
       });
 
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      const answer = data.answers && data.answers.length > 0 
-        ? data.answers[0].text || data.answers[0] 
+      const answer = data.answers && data.answers.length > 0
+        ? (data.answers[0].text || (data.answers[0] as any))
         : 'I apologize, I could not generate a response.';
       
       const assistantMessage: Message = {

@@ -34,6 +34,8 @@ interface Note {
   createdAt: Date;
 }
 
+import { generateNotes } from '../services/api';
+
 export function NotesPage({
   student,
   onBack,
@@ -76,23 +78,14 @@ export function NotesPage({
     setIsDialogOpen(false);
 
     try {
-      const response = await fetch('http://127.0.0.1:8000/generate-notes', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          text: `Generate comprehensive study notes about ${topic} in ${subject}. Provide detailed, well-structured notes suitable for students at ${student.grade} level.`,
-          max_length: 2000,
-          temperature: 0.7,
-        }),
+      const data = await generateNotes({
+        text: `Generate comprehensive study notes about ${topic} in ${subject}. Provide detailed, well-structured notes suitable for students at ${student.grade} level.`,
+        max_length: 2000,
+        temperature: 0.7,
       });
 
-      if (!response.ok) throw new Error('Failed to generate notes');
-      
-      const data = await response.json();
-      const content = data.answers && data.answers.length > 0 
-        ? data.answers[0].text || data.answers[0] 
+      const content = data.answers && data.answers.length > 0
+        ? (data.answers[0].text || (data.answers[0] as any))
         : '';
 
       const newNote: Note = {
