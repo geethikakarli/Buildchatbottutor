@@ -292,82 +292,77 @@ function parseQuizText(quizText: string, language: string): QuizQuestion[] {
   const questions: QuizQuestion[] = [];
   
   try {
-    // Split by question markers (handle "**Q:" and "Q:" formats)
-    const questionBlocks = quizText.split(/\*?\*?Q\d+:?\*?\*?/).slice(1); // Skip first empty element
+    // Split by "Q:" at the beginning of lines
+    const questionBlocks = quizText.split(/^\s*Q:\s*/m).slice(1);
 
     for (const block of questionBlocks) {
       if (!block.trim().length) continue;
 
       try {
-        const lines = block.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-        if (lines.length < 5) continue;
+        const lines = block.split('\n');
+        
+        // First non-empty line is the question
+        let questionText = '';
+        let lineIndex = 0;
+        
+        for (; lineIndex < lines.length; lineIndex++) {
+          const trimmed = lines[lineIndex].trim();
+          if (trimmed && !trimmed.match(/^[A-D]\)/)) {
+            questionText = trimmed
+              .replace(/\*\*/g, '')
+              .replace(/\*/g, '')
+              .trim();
+            lineIndex++;
+            break;
+          }
+        }
 
-        // First line is the question
-        let questionText = lines[0]
-          .replace(/\*\*/g, '') // Remove bold markers
-          .replace(/\*/g, '') // Remove other markdown
-          .replace(/^#+\s+/, '') // Remove heading markers
-          .trim();
+        if (!questionText) continue;
 
         const options: string[] = [];
         let correctAnswerIndex = -1;
         let explanation = '';
-        let answerLine = '';
 
-        for (let j = 1; j < lines.length; j++) {
-          const line = lines[j];
+        // Process remaining lines
+        for (; lineIndex < lines.length; lineIndex++) {
+          const line = lines[lineIndex].trim();
+          
+          // Skip empty lines
+          if (!line) continue;
 
-          // Look for "Answer:" line
-          if (line.match(/^Answer:\s*[A-D]\)/i)) {
-            answerLine = line;
-          }
-
-          // Look for explanation
-          if (line.match(/^Explanation:/i)) {
-            explanation = lines.slice(j + 1).join(' ').trim();
-            break;
+          // Check for [CORRECT] marker
+          if (line === '[CORRECT]' || line.startsWith('[CORRECT]')) {
+            // The next non-empty line should contain the correct option
+            for (let k = lineIndex + 1; k < lines.length; k++) {
+              const nextLine = lines[k].trim();
+              if (nextLine.match(/^[A-D]\)/)) {
+                const correctLetter = nextLine.match(/^([A-D])/)[1];
+                correctAnswerIndex = correctLetter.charCodeAt(0) - 65; // A=0, B=1, C=2, D=3
+                break;
+              }
+            }
+            continue;
           }
 
           // Match option patterns: "A) text"
           const optionMatch = line.match(/^[A-D]\)\s+(.+)$/);
           if (optionMatch) {
             const optionText = optionMatch[1]
-              .replace(/\*\*/g, '') // Remove bold
-              .replace(/\*/g, '') // Remove markdown
+              .replace(/\*\*/g, '')
+              .replace(/\*/g, '')
               .trim();
-
             options.push(optionText);
+            continue;
+          }
+
+          // If we have all options, rest is explanation
+          if (options.length === 4) {
+            explanation = lines.slice(lineIndex).map(l => l.trim()).filter(l => l).join(' ');
+            break;
           }
         }
 
-        // Extract correct answer from "Answer: B) ..." format
-        if (answerLine && correctAnswerIndex === -1) {
-          const answerMatch = answerLine.match(/Answer:\s*([A-D])\)/i);
-          if (answerMatch) {
-            const answerLetter = answerMatch[1].toUpperCase();
-            const answerIndex = answerLetter.charCodeAt(0) - 65; // A=0, B=1, C=2, D=3
-            if (answerIndex >= 0 && answerIndex < options.length) {
-              correctAnswerIndex = answerIndex;
-            }
-          }
-        }
-
-        // Fallback: try to find correct answer in options (some models might mark it inline)
-        if (correctAnswerIndex === -1 && options.length === 4) {
-          for (let k = 0; k < options.length; k++) {
-            if (options[k].includes('[CORRECT]') || options[k].includes('***')) {
-              correctAnswerIndex = k;
-              // Clean the option text
-              options[k] = options[k]
-                .replace(/\[CORRECT\]/g, '')
-                .replace(/\*\*\*/g, '')
-                .trim();
-              break;
-            }
-          }
-        }
-
-        // If still no answer found, default to first option
+        // Fallback: if no answer marked with [CORRECT], default to first
         if (correctAnswerIndex === -1 && options.length === 4) {
           correctAnswerIndex = 0;
         }
@@ -380,8 +375,8 @@ function parseQuizText(quizText: string, language: string): QuizQuestion[] {
             questionEnglish: questionText,
             options,
             correctAnswer: correctAnswerIndex,
-            explanationLocal: explanation || 'Refer to the options for more details.',
-            explanationEnglish: explanation || 'Refer to the options for more details.',
+            explanationLocal: explanation.trim() || 'No explanation provided.',
+            explanationEnglish: explanation.trim() || 'No explanation provided.',
           };
           questions.push(question);
         }
