@@ -68,11 +68,9 @@ const languageNames: Record<string, string> = {
 
 export function QuizPage({
   student,
-  selectedLanguage,
   onBack,
 }: {
   student: StudentProfile;
-  selectedLanguage: string;
   onBack: () => void;
 }) {
   // Safety check for student prop
@@ -161,7 +159,6 @@ export function QuizPage({
       const quizData = await generateQuiz({
         subject: subject,
         topic: topic,
-        language: selectedLanguage,
         num_questions: 5,
       });
 
@@ -286,9 +283,7 @@ export function QuizPage({
                       )}
                     </div>
                     <p className="text-gray-700 mb-4">
-                      {selectedLanguage === 'en'
-                        ? question.questionEnglish
-                        : question.questionLocal}
+                      {question.questionEnglish}
                     </p>
                   </div>
 
@@ -343,9 +338,7 @@ export function QuizPage({
                     <div className="mt-4 p-3 rounded-lg bg-blue-50 border border-blue-200">
                       <p className="text-sm font-semibold text-blue-900 mb-1">Explanation:</p>
                       <p className="text-sm text-blue-800">
-                        {selectedLanguage === 'en'
-                          ? question.explanationEnglish
-                          : question.explanationLocal}
+                        {question.explanationEnglish}
                       </p>
                     </div>
                   )}

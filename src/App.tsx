@@ -24,7 +24,6 @@ interface StudentProfile {
 export default function App() {
   const [user, setUser] = useState<StudentProfile | null>(null);
   const [currentPage, setCurrentPage] = useState<Page>('home');
-  const [selectedLanguage, setSelectedLanguage] = useState<string>('hi');
 
   // Check for stored user session
   useEffect(() => {
@@ -58,29 +57,24 @@ export default function App() {
           <HomePage
             userName={user.name}
             onNavigate={setCurrentPage}
-            selectedLanguage={selectedLanguage}
-            onLanguageChange={setSelectedLanguage}
             onLogout={handleLogout}
           />
         )}
         {currentPage === 'chat' && (
           <ChatPage
             student={user}
-            selectedLanguage={selectedLanguage}
             onBack={() => setCurrentPage('home')}
           />
         )}
         {currentPage === 'notes' && (
           <NotesPage
             student={user}
-            selectedLanguage={selectedLanguage}
             onBack={() => setCurrentPage('home')}
           />
         )}
         {currentPage === 'quiz' && (
           <QuizPage
             student={user}
-            selectedLanguage={selectedLanguage}
             onBack={() => setCurrentPage('home')}
           />
         )}
@@ -158,38 +152,26 @@ function NavButton({ icon: Icon, label, active, onClick }: NavButtonProps) {
 interface HomePageProps {
   userName: string;
   onNavigate: (page: Page) => void;
-  selectedLanguage: string;
-  onLanguageChange: (lang: string) => void;
   onLogout: () => void;
 }
 
 function HomePage({
   userName,
   onNavigate,
-  selectedLanguage,
-  onLanguageChange,
   onLogout,
 }: HomePageProps) {
-  const languages = [
-    { code: 'hi', name: 'हिंदी', label: 'Hindi' },
-    { code: 'te', name: 'తెలుగు', label: 'Telugu' },
-    { code: 'ta', name: 'தமிழ்', label: 'Tamil' },
-    { code: 'kn', name: 'ಕನ್ನಡ', label: 'Kannada' },
-    { code: 'en', name: 'English', label: 'English' },
-  ];
-
   const features = [
     {
       icon: MessageSquare,
-      title: 'Ask Doubts',
-      description: 'Get instant bilingual explanations',
+      title: 'Ask Questions',
+      description: 'Get instant AI-powered explanations',
       page: 'chat' as Page,
       color: 'bg-blue-500',
     },
     {
       icon: FileText,
       title: 'Generate Notes',
-      description: 'Create topic-wise study material',
+      description: 'Create comprehensive study materials',
       page: 'notes' as Page,
       color: 'bg-green-500',
     },
@@ -213,9 +195,9 @@ function HomePage({
     <div className="min-h-full bg-gradient-to-b from-blue-50 to-white p-4 pb-20">
       <div className="max-w-lg mx-auto">
         {/* Header */}
-        <div className="flex justify-between items-start mb-6 pt-2">
+        <div className="flex justify-between items-start mb-8 pt-2">
           <div>
-            <h1 className="text-gray-900 mb-1">Welcome back, {userName}! 👋</h1>
+            <h1 className="text-2xl font-bold text-gray-900 mb-1">Welcome back, {userName}! 👋</h1>
             <p className="text-gray-600">Ready to learn today?</p>
           </div>
           <button
@@ -224,27 +206,6 @@ function HomePage({
           >
             Logout
           </button>
-        </div>
-
-        {/* Language Selector */}
-        <div className="bg-white rounded-xl p-4 shadow-sm mb-6">
-          <label className="block text-gray-700 mb-3">Learning Language</label>
-          <div className="grid grid-cols-2 gap-2">
-            {languages.map((lang) => (
-              <button
-                key={lang.code}
-                onClick={() => onLanguageChange(lang.code)}
-                className={`p-3 rounded-lg border-2 transition-all ${
-                  selectedLanguage === lang.code
-                    ? 'border-blue-500 bg-blue-50'
-                    : 'border-gray-200 bg-white'
-                }`}
-              >
-                <div className="text-lg mb-1">{lang.name}</div>
-                <div className="text-xs text-gray-600">{lang.label}</div>
-              </button>
-            ))}
-          </div>
         </div>
 
         {/* Feature Cards */}
@@ -261,8 +222,8 @@ function HomePage({
                   <Icon className="w-6 h-6 text-white" />
                 </div>
                 <div className="flex-1 text-left">
-                  <h3 className="text-gray-900 mb-1">{feature.title}</h3>
-                  <p className="text-gray-600">{feature.description}</p>
+                  <h3 className="text-gray-900 mb-1 font-semibold">{feature.title}</h3>
+                  <p className="text-sm text-gray-600">{feature.description}</p>
                 </div>
               </button>
             );

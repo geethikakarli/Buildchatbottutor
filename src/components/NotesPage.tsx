@@ -18,7 +18,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from './ui/select';
-import { generateNotes } from '../services/mlBackend';
 
 interface StudentProfile {
   id: string;
@@ -38,26 +37,15 @@ interface Note {
   title: string;
   subject: string;
   topic: string;
-  localContent: string;
-  englishContent: string;
+  content: string;
   createdAt: Date;
 }
 
-const languageNames: Record<string, string> = {
-  hi: 'हिंदी',
-  te: 'తెలుగు',
-  ta: 'தமிழ்',
-  kn: 'ಕನ್ನಡ',
-  en: 'English',
-};
-
 export function NotesPage({
   student,
-  selectedLanguage,
   onBack,
 }: {
   student: StudentProfile;
-  selectedLanguage: string;
   onBack: () => void;
 }) {
   const [notes, setNotes] = useState<Note[]>([]);
@@ -69,7 +57,7 @@ export function NotesPage({
   const [subject, setSubject] = useState('');
   const [topic, setTopic] = useState('');
 
-  const updateProgress = (subject: string, topic: string) => {
+  const updateProgress = (subject: string) => {
     try {
       const progressKey = `progress_${student.id}`;
       const savedProgress = localStorage.getItem(progressKey);
@@ -81,16 +69,6 @@ export function NotesPage({
         progress.subjectProgress = {};
       }
       progress.subjectProgress[subject] = (progress.subjectProgress[subject] || 0) + 20;
-
-      if (!progress.recentActivity) {
-        progress.recentActivity = [];
-      }
-      progress.recentActivity.unshift({
-        type: 'notes',
-        description: `Generated notes: ${subject} - ${topic}`,
-        timestamp: new Date().toISOString(),
-      });
-      progress.recentActivity = progress.recentActivity.slice(0, 10);
 
       localStorage.setItem(progressKey, JSON.stringify(progress));
     } catch (error) {
@@ -105,24 +83,36 @@ export function NotesPage({
     setIsDialogOpen(false);
 
     try {
-      const content = await generateNotes({
-        subject: subject,
-        topic: topic,
-        language: selectedLanguage,
+      const response = await fetch('http://127.0.0.1:8000/generate-notes', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          text: `Generate comprehensive study notes about ${topic} in ${subject}. Provide detailed, well-structured notes suitable for students at ${student.grade} level.`,
+          max_length: 2000,
+          temperature: 0.7,
+        }),
       });
+
+      if (!response.ok) throw new Error('Failed to generate notes');
+      
+      const data = await response.json();
+      const content = data.answers && data.answers.length > 0 
+        ? data.answers[0].text || data.answers[0] 
+        : '';
 
       const newNote: Note = {
         id: 'note_' + Date.now(),
         title: topic,
         subject: subject,
         topic: topic,
-        localContent: content.localContent,
-        englishContent: content.englishContent,
+        content: content,
         createdAt: new Date(),
       };
 
-      updateProgress(subject, topic);
-      setNotes((prev) => [newNote, ...prev]);
+      updateProgress(subject);
+      setNotes((prev: Note[]) => [newNote, ...prev]);
       setSubject('');
       setTopic('');
     } catch (error) {
@@ -133,7 +123,7 @@ export function NotesPage({
   };
 
   const handleDeleteNote = (noteId: string) => {
-    setNotes((prev) => prev.filter((n) => n.id !== noteId));
+    setNotes((prev: Note[]) => prev.filter((n: Note) => n.id !== noteId));
     if (selectedNote?.id === noteId) {
       setSelectedNote(null);
     }
@@ -146,8 +136,7 @@ export function NotesPage({
   };
 
   const handleDownloadNote = (note: Note) => {
-    const content = `${note.title}\n\n${languageNames[selectedLanguage]}:\n${note.localContent}\n\nEnglish:\n${note.englishContent}`;
-    const blob = new Blob([content], { type: 'text/plain' });
+    const blob = new Blob([note.content], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -158,7 +147,7 @@ export function NotesPage({
 
   if (selectedNote) {
     return (
-      <div className="flex flex-col h-full bg-gray-50">
+      <div className="flex flex-col h-full bg-white">
         {/* Header */}
         <div className="bg-white border-b border-gray-200 px-4 py-3 sticky top-0 z-10">
           <div className="flex items-center justify-between gap-3 max-w-4xl mx-auto">
@@ -201,32 +190,12 @@ export function NotesPage({
 
         {/* Content */}
         <div className="flex-1 overflow-auto">
-          <div className="max-w-4xl mx-auto p-6 space-y-8">
-            {/* Local Language Version */}
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-3">
-                {languageNames[selectedLanguage]}
-              </h3>
-              <div className="bg-white rounded-lg p-6 border border-gray-200">
-                <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">
-                  {selectedNote.localContent}
-                </p>
-              </div>
+          <div className="max-w-4xl mx-auto p-6">
+            <div className="bg-white rounded-lg p-6 border border-gray-200">
+              <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">
+                {selectedNote.content}
+              </p>
             </div>
-
-            {/* English Version */}
-            {selectedLanguage !== 'en' && (
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">
-                  English
-                </h3>
-                <div className="bg-white rounded-lg p-6 border border-gray-200">
-                  <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">
-                    {selectedNote.englishContent}
-                  </p>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -234,29 +203,29 @@ export function NotesPage({
   }
 
   return (
-    <div className="flex flex-col h-full bg-gray-50">
+    <div className="flex flex-col h-full bg-white">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-4 py-3 sticky top-0 z-10">
+      <div className="bg-gradient-to-r from-green-500 to-green-600 text-white px-4 py-3 sticky top-0 z-10 shadow-sm">
         <div className="flex items-center justify-between gap-3 max-w-4xl mx-auto">
           <button
             onClick={onBack}
-            className="text-gray-600 hover:text-gray-900"
+            className="text-white hover:bg-green-700 p-2 rounded-lg transition-colors"
           >
-            <ArrowLeft className="w-6 h-6" />
+            <ArrowLeft className="w-5 h-5" />
           </button>
-          <h1 className="text-lg font-semibold text-gray-900">Study Notes</h1>
+          <h1 className="text-lg font-semibold">Study Notes</h1>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button size="sm" className="gap-2">
+              <Button size="sm" className="gap-2 bg-white text-green-600 hover:bg-gray-100">
                 <Plus className="w-4 h-4" />
-                Generate Notes
+                Generate
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-md">
               <DialogHeader>
-                <DialogTitle>Generate New Notes</DialogTitle>
+                <DialogTitle>Generate Study Notes</DialogTitle>
                 <DialogDescription>
-                  Select a subject and topic to generate study notes in your preferred language.
+                  Select a subject and topic to generate comprehensive study notes.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
@@ -324,15 +293,15 @@ export function NotesPage({
                         {new Date(note.createdAt).toLocaleDateString()}
                       </p>
                     </div>
-                    <button
+                    <div
                       onClick={(e) => {
                         e.stopPropagation();
                         handleDeleteNote(note.id);
                       }}
-                      className="text-gray-400 hover:text-red-600"
+                      className="text-gray-400 hover:text-red-600 cursor-pointer p-1"
                     >
                       <Trash2 className="w-5 h-5" />
-                    </button>
+                    </div>
                   </div>
                 </button>
               ))}
